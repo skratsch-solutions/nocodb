@@ -48,8 +48,6 @@ const meta = inject(MetaInj, ref())
 
 const fields = inject(FieldsInj, ref())
 
-const { gridViewPageSize } = useGlobal()
-
 const scrollLeft = toRef(props, 'scrollLeft')
 
 const { isViewDataLoading, isPaginationLoading } = storeToRefs(useViewsStore())
@@ -133,15 +131,21 @@ const activeGroups = computed<string[]>(() => {
 
 const oldActiveGroups = ref<string[]>([])
 
-const findAndLoadSubGroup = (key: any) => {
+const findAndLoadSubGroup = async (key: any) => {
   key = Array.isArray(key) ? key : [key]
   if (key.length > 0 && vGroup.value.children) {
     if (!oldActiveGroups.value.includes(key[key.length - 1])) {
+      // wait until children loads since it may be still loading in background
+      // todo: implement a better way to handle this
+      await until(() => vGroup.value.children?.length > 0).toBeTruthy({
+        timeout: 10000,
+      })
+
       const k = key[key.length - 1].replace('group-panel-', '')
       const grp = vGroup.value.children.find((g) => `${g.key}` === k)
       if (grp) {
         if (grp.nested) {
-          if (!grp.children[0].children?.length) {
+          if (!grp.children?.[0]?.children?.length) {
             props.loadGroups({}, grp, {
               triggerChildOnly: true,
             })
@@ -186,12 +190,7 @@ watch([() => vGroup.value.key], async (n, o) => {
 
 onMounted(async () => {
   if (vGroup.value.root === true && !vGroup.value?.children?.length) {
-    await props.loadGroups(
-      {
-        limit: gridViewPageSize.value,
-      },
-      vGroup.value,
-    )
+    await props.loadGroups({}, vGroup.value)
   }
 })
 
@@ -278,13 +277,13 @@ const shouldRenderCell = (column) =>
     UITypes.LastModifiedBy,
   ].includes(column?.uidt)
 
-const expandGroup = (key: string) => {
+const expandGroup = async (key: string) => {
   if (Array.isArray(_activeGroupKeys.value)) {
     _activeGroupKeys.value.push(`group-panel-${key}`)
   } else {
     _activeGroupKeys.value = [`group-panel-${key}`]
   }
-  findAndLoadSubGroup(`group-panel-${key}`)
+  await findAndLoadSubGroup(`group-panel-${key}`)
 }
 
 const collapseGroup = (key: string) => {
@@ -295,17 +294,19 @@ const collapseGroup = (key: string) => {
   }
 }
 
-const collapseAllGroup = () => {
+const _collapseAllGroup = () => {
   _activeGroupKeys.value = []
 }
 
-const expandAllGroup = () => {
+const _expandAllGroup = async () => {
   _activeGroupKeys.value = vGroup.value.children?.map((g) => `group-panel-${g.key}`) ?? []
 
   if (vGroup.value.children) {
-    vGroup.value.children.forEach((g) => {
-      findAndLoadSubGroup(`group-panel-${g.key}`)
-    })
+    await Promise.all(
+      vGroup.value.children.map((g) => {
+        return findAndLoadSubGroup(`group-panel-${g.key}`)
+      }),
+    )
   }
 }
 
@@ -414,7 +415,7 @@ const bgColor = computed(() => {
           @change="findAndLoadSubGroup"
         >
           <a-collapse-panel
-            v-for="[_, grp] of Object.entries(vGroup?.children ?? [])"
+            v-for="grp of vGroup?.children ?? []"
             :key="`group-panel-${grp.key}`"
             class="!border-1 border-gray-300 nc-group rounded-[8px] mb-2"
             :style="`background: ${bgColor};`"
@@ -525,7 +526,7 @@ const bgColor = computed(() => {
                       </NcButton>
 
                       <template #overlay>
-                        <NcMenu>
+                        <NcMenu variant="small">
                           <NcMenuItem v-if="activeGroups.includes(grp.key.toString())" @click="collapseGroup(grp.key)">
                             <GeneralIcon icon="minimize" />
                             Collapse group
@@ -534,6 +535,7 @@ const bgColor = computed(() => {
                             <GeneralIcon icon="maximize" />
                             Expand group
                           </NcMenuItem>
+                          <!--
                           <NcMenuItem @click="expandAllGroup">
                             <GeneralIcon icon="maximizeAll" />
                             Expand all
@@ -542,6 +544,7 @@ const bgColor = computed(() => {
                             <GeneralIcon icon="minimizeAll" />
                             Collapse all
                           </NcMenuItem>
+                          -->
                         </NcMenu>
                       </template>
                     </NcDropdown>
@@ -597,7 +600,7 @@ const bgColor = computed(() => {
   <LazySmartsheetGridPaginationV2
     v-if="vGroup.root"
     v-model:pagination-data="vGroup.paginationData"
-    :show-size-changer="true"
+    :show-size-changer="false"
     :scroll-left="_scrollLeft"
     custom-label="groups"
     :depth="maxDepth"
