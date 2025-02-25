@@ -1,5 +1,6 @@
 import UITypes from '../UITypes';
-import { IDType } from '~/lib';
+import { ColumnType, IDType } from '~/lib';
+import { SqlUi } from './SqlUI.types';
 
 const dbTypes = [
   'int',
@@ -43,7 +44,8 @@ const dbTypes = [
   'json',
 ];
 
-export class MysqlUi {
+export class MysqlUi implements SqlUi {
+  //#region statics
   static getNewTableColumns(): readonly any[] {
     return [
       {
@@ -181,6 +183,30 @@ export class MysqlUi {
         dtxs: '',
         altered: 1,
         uidt: UITypes.LastModifiedBy,
+        uip: '',
+        uicn: '',
+        system: true,
+      },
+      {
+        column_name: 'nc_order',
+        title: 'nc_order',
+        dt: 'decimal',
+        dtx: 'decimal',
+        ct: 'decimal(40,20)',
+        nrqd: true,
+        rqd: false,
+        ck: false,
+        pk: false,
+        un: false,
+        ai: false,
+        cdf: null,
+        clen: null,
+        np: 40,
+        ns: 20,
+        dtxp: '40,20',
+        dtxs: '',
+        altered: 1,
+        uidt: UITypes.Order,
         uip: '',
         uicn: '',
         system: true,
@@ -1132,6 +1158,9 @@ export class MysqlUi {
       case 'JSON':
         colProp.dt = 'json';
         break;
+      case 'Order':
+        colProp.dt = 'decimal';
+        break;
       default:
         colProp.dt = 'varchar';
         break;
@@ -1281,6 +1310,7 @@ export class MysqlUi {
         ];
 
       case 'Formula':
+      case 'Button':
         return [
           'char',
           'varchar',
@@ -1325,7 +1355,6 @@ export class MysqlUi {
           'multipolygon',
         ];
 
-      case 'Button':
       default:
         return dbTypes;
     }
@@ -1333,6 +1362,24 @@ export class MysqlUi {
 
   static getUnsupportedFnList() {
     return ['COUNTA', 'COUNT', 'DATESTR'];
+  }
+
+  static getCurrentDateDefault(col: Partial<ColumnType>) {
+    // if database datatype timestamp or datetime then return CURRENT_TIMESTAMP
+    if (
+      col.dt &&
+      (col.dt.toLowerCase() === 'timestamp' ||
+        col.dt.toLowerCase() === 'datetime')
+    ) {
+      return 'CURRENT_TIMESTAMP';
+    }
+
+    // database type is not defined(means column create) and ui datatype is datetime then return CURRENT_TIMESTAMP
+    // in this scenario it will create column with datatype timestamp/datetime
+    if (!col.dt && col.uidt === UITypes.DateTime) {
+      return 'CURRENT_TIMESTAMP';
+    }
+    return null;
   }
 
   static isEqual(dataType1: string, dataType2: string) {
@@ -1350,4 +1397,92 @@ export class MysqlUi {
 
     return false;
   }
+  //#endregion statics
+
+  //#region methods
+  getNewTableColumns(): readonly any[] {
+    return MysqlUi.getNewTableColumns();
+  }
+  getNewColumn(suffix: string): {
+    column_name: string;
+    dt: string;
+    dtx: string;
+    ct: string;
+    nrqd: boolean;
+    rqd: boolean;
+    ck: boolean;
+    pk: boolean;
+    un: boolean;
+    ai: boolean;
+    cdf: null;
+    clen: number;
+    np: number;
+    ns: number;
+    dtxp: string;
+    dtxs: string;
+    altered: number;
+    uidt: string;
+    uip: string;
+    uicn: string;
+  } {
+    return MysqlUi.getNewColumn(suffix);
+  }
+  getDefaultLengthForDatatype(type: string): number | string {
+    return MysqlUi.getDefaultLengthForDatatype(type);
+  }
+  getDefaultLengthIsDisabled(type: string) {
+    return MysqlUi.getDefaultLengthIsDisabled(type);
+  }
+  getDefaultValueForDatatype(type: string) {
+    return MysqlUi.getDefaultValueForDatatype(type);
+  }
+  getDefaultScaleForDatatype(type: any): string {
+    return MysqlUi.getDefaultScaleForDatatype(type);
+  }
+  colPropAIDisabled(col: ColumnType, columns: ColumnType[]): boolean {
+    return MysqlUi.colPropAIDisabled(col, columns);
+  }
+  colPropUNDisabled(col: ColumnType): boolean {
+    return MysqlUi.colPropUNDisabled(col);
+  }
+  onCheckboxChangeAI(col: ColumnType): void {
+    return MysqlUi.onCheckboxChangeAI(col);
+  }
+  showScale(columnObj: ColumnType): boolean {
+    return MysqlUi.showScale(columnObj);
+  }
+  removeUnsigned(columns: ColumnType[]): void {
+    return MysqlUi.removeUnsigned(columns);
+  }
+  columnEditable(colObj: ColumnType): boolean {
+    return MysqlUi.columnEditable(colObj);
+  }
+  onCheckboxChangeAU(col: ColumnType): void {
+    return MysqlUi.onCheckboxChangeAU(col);
+  }
+  colPropAuDisabled(col: ColumnType): boolean {
+    return MysqlUi.colPropAuDisabled(col);
+  }
+  getAbstractType(col: ColumnType): string {
+    return MysqlUi.getAbstractType(col);
+  }
+  getUIType(col: ColumnType): string {
+    return MysqlUi.getUIType(col);
+  }
+  getDataTypeForUiType(col: { uidt: UITypes }, idType?: IDType) {
+    return MysqlUi.getDataTypeForUiType(col, idType);
+  }
+  getDataTypeListForUiType(col: { uidt: UITypes }, idType?: IDType): string[] {
+    return MysqlUi.getDataTypeListForUiType(col, idType);
+  }
+  getUnsupportedFnList(): string[] {
+    return MysqlUi.getUnsupportedFnList();
+  }
+  getCurrentDateDefault(_col: Partial<ColumnType>) {
+    return MysqlUi.getCurrentDateDefault(_col);
+  }
+  isEqual(dataType1: string, dataType2: string): boolean {
+    return MysqlUi.isEqual(dataType1, dataType2);
+  }
+  //#endregion methods
 }
